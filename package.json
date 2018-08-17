@@ -1,0 +1,38 @@
+{
+  "name": "privatrium",
+  "version": "0.0.1",
+  "description": "privatrium node",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "mocha --timeout 10000 --exit",
+    "posttest": "npm run lint -s",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/areth/privatrium.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/areth/privatrium/issues"
+  },
+  "homepage": "https://github.com/areth/privatrium#readme",
+  "devDependencies": {
+    "babel-eslint": "^8.2.3",
+    "chai": "^4.1.2",
+    "chai-http": "^4.0.0",
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb": "^16.1.0",
+    "eslint-plugin-chai-friendly": "^0.4.1",
+    "eslint-plugin-import": "^2.12.0",
+    "eslint-plugin-jsx-a11y": "^6.0.3",
+    "eslint-plugin-react": "^7.8.2",
+    "gulp": "^3.9.1",
+    "gulp-shell": "^0.6.5",
+    "mocha": "^5.2.0",
+    "sinon": "^5.0.10",
+    "sinon-chai": "^3.2.0"
+  }
+}
