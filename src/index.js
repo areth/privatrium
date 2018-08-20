@@ -1,7 +1,7 @@
 const { EventEmitter } = require('events');
 
 class Node extends EventEmitter {
-  constructor(_options) {
+  constructor(storageAdapter) {
     super();
   }
 }
