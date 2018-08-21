@@ -36,6 +36,7 @@
     "sinon-chai": "^3.2.0"
   },
   "dependencies": {
+    "bs58": "^4.0.1",
     "graceful-fs": "^4.1.11",
     "lowdb": "^1.0.0",
     "pify": "^4.0.0",
