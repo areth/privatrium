@@ -1,6 +1,9 @@
 const messages = require('../src/messages');
 const chai = require('chai');
 const crypto = require('crypto');
+const joi = require('joi');
+const privateMessageSchema = require('../src/schemas/privateMessage');
+const publicMessageSchema = require('../src/schemas/publicMessage');
 
 const text = 'lorem ipsum che to tam';
 const content = {
@@ -44,10 +47,7 @@ describe('messages', () => {
   describe('make private message', () => {
     it('it should make private message', () => {
       const msg = messages.makePrivate(text);
-      msg.should.be.a('object');
-      msg.should.have.property('id');
-      msg.should.have.property('content');
-      msg.content.should.have.property('text');
+      joi.assert(msg, privateMessageSchema);
     });
   });
 
@@ -55,19 +55,14 @@ describe('messages', () => {
     it('it should make public free message', () => {
       const msg = messages.makePrivate(text);
       const pubMsg = messages.makePublic(msg);
-      pubMsg.should.be.a('object');
-      pubMsg.should.have.property('id');
-      pubMsg.should.have.property('content');
-      pubMsg.content.should.have.property('text');
+      joi.assert(pubMsg, publicMessageSchema);
     });
 
     it('it should make public encoded message', () => {
       const msgToReply = messages.makePrivate(text);
       const msg = messages.makePrivate(text, { replyToMessage: msgToReply });
       const pubMsg = messages.makePublic(msg);
-      pubMsg.should.be.a('object');
-      pubMsg.should.have.property('id');
-      pubMsg.should.have.property('content');
+      joi.assert(pubMsg, publicMessageSchema);
       pubMsg.content.should.be.a.string;
     });
   });

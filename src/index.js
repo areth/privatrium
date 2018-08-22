@@ -1,6 +1,7 @@
 const { EventEmitter } = require('events');
 const lowdb = require('lowdb');
 const messages = require('./messages');
+const threads = require('./threads');
 
 class Node extends EventEmitter {
   constructor(storage) {
@@ -9,7 +10,35 @@ class Node extends EventEmitter {
   }
 
   postText(text, { replyTo = '', channel = '' } = {}) {
-    const message = messages.makePrivate(text, { channel });
+    const options = { channel };
+    let replyToMessage;
+    let thread;
+    if (replyTo) {
+      replyToMessage = this.findIncomeMessage(replyTo);
+      if (!replyToMessage) {
+        return Promise.reject(new Error(`Reply to unknown message ${replyTo}`));
+      }
+      options.replyToMessage = replyToMessage;
+
+      if (replyToMessage.thread) {
+        thread = this.findThread(replyToMessage.thread);
+        if (thread) {
+          options.thread = thread;
+        }
+      }
+    }
+
+    const message = messages.makePrivate(text, options);
+
+    if (replyToMessage && !thread) {
+      thread = threads.make(
+        replyToMessage,
+        message,
+        { privateKey: message.keys, publicKey: replyToMessage.publicKey }
+      );
+      this.db.get('threads').push(thread);
+      message.thread = thread.id;
+    }
 
     // post message and return message id
     return this.post(message)
@@ -17,15 +46,43 @@ class Node extends EventEmitter {
   }
 
   post(message) {
-    if (!message.replyTo) {
-      if (message.channel) {
-        this.db.get('channels').push(message);
-      } else {
-        this.db.get('messages').push(message);
-      }
+    if (message.replyTo) {
+      this.db.get('replies').push(message);
+    } else {
+      this.db.get('messages').push(message);
     }
     this.db.get('messagesIds').push(message.id);
     return this.db.write();
+  }
+
+  findIncomeMessage(messageId) {
+    let message = this.db.get('income.messages')
+      .find({ id: messageId })
+      .value();
+    if (!message) {
+      message = this.db.get('income.replies')
+        .find({ id: messageId })
+        .value();
+    }
+    return message;
+  }
+
+  findOutcomeMessage(messageId) {
+    let message = this.db.get('messages')
+      .find({ id: messageId })
+      .value();
+    if (!message) {
+      message = this.db.get('replies')
+        .find({ id: messageId })
+        .value();
+    }
+    return message;
+  }
+
+  findThread(threadId) {
+    return this.db.get('threads')
+      .find({ id: threadId })
+      .value();
   }
 }
 

@@ -52,21 +52,26 @@ const makePrivate = (text, { replyToMessage = '', thread = '', channel = '' } = 
   };
 
   if (thread) {
-    // if message is answer to the thread, it must be encoded
-    message.publicKey = thread.publicKey;
-    message.privateKey = thread.privateKey;
+    // if message is answer to the thread, copy its keys
+    message.keys = thread.keys;
+    message.thread = thread.id;
   } else {
     // messages beyond of the thread are open
     // generate key pair
     const ecdh = crypto.createECDH(ecdhCurve);
     ecdh.generateKeys();
-    message.publicKey = ecdh.getPublicKey(keysEncoding);
-    message.privateKey = ecdh.getPrivateKey(keysEncoding);
+    message.keys = {
+      publicKey: ecdh.getPublicKey(keysEncoding),
+      privateKey: ecdh.getPrivateKey(keysEncoding),
+    };
   }
 
   if (replyToMessage) {
     message.replyTo = replyToMessage.id;
-    message.publicContent = encode(message.content, message.privateKey, replyToMessage.publicKey);
+    message.publicContent = encode(
+      message.content,
+      message.keys.privateKey, replyToMessage.keys.publicKey
+    );
     message.id = hash(message.publicContent);
   } else {
     message.id = hash(message.content);
@@ -82,7 +87,7 @@ const makePrivate = (text, { replyToMessage = '', thread = '', channel = '' } = 
 const makePublic = (privateMessage) => {
   const message = {
     id: privateMessage.id,
-    key: privateMessage.publicKey,
+    key: privateMessage.keys.publicKey,
     content: privateMessage.replyTo ? privateMessage.publicContent : privateMessage.content,
   };
 
@@ -96,9 +101,11 @@ const makePublic = (privateMessage) => {
 const makePrivateByIncome = (incomeMessage, replyToMessage = '') => {
   const message = {
     id: incomeMessage.id,
-    publicKey: incomeMessage.key,
+    keys: {
+      publicKey: incomeMessage.key,
+    },
     content: replyToMessage
-      ? decode(incomeMessage.content, replyToMessage.privateKey, incomeMessage.key)
+      ? decode(incomeMessage.content, replyToMessage.keys.privateKey, incomeMessage.key)
       : incomeMessage.content,
   };
 
