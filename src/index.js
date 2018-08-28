@@ -31,11 +31,7 @@ class Node extends EventEmitter {
     const message = messages.makePrivate(text, options);
 
     if (replyToMessage && !thread) {
-      thread = threads.make(
-        replyToMessage,
-        message,
-        { privateKey: message.keys, publicKey: replyToMessage.publicKey }
-      );
+      thread = threads.make(replyToMessage, message, message.keys);
       this.db.get('threads').push(thread);
       message.thread = thread.id;
     }

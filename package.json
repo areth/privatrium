@@ -4,7 +4,7 @@
   "description": "privatrium node",
   "main": "src/index.js",
   "scripts": {
-    "test": "mocha --timeout 10000 --recursive --exit",
+    "test": "mocha --timeout 10000 --recursive",
     "posttest": "npm run lint -s",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
@@ -36,6 +36,7 @@
     "sinon-chai": "^3.2.0"
   },
   "dependencies": {
+    "async": "^2.6.1",
     "bs58": "^4.0.1",
     "graceful-fs": "^4.1.11",
     "joi": "^13.6.0",

@@ -52,7 +52,7 @@ const makePrivate = (text, { replyToMessage = '', thread = '', channel = '' } = 
   };
 
   if (thread) {
-    // if message is answer to the thread, copy its keys
+    // if message is reply to the thread, copy its keys
     message.keys = thread.keys;
     message.thread = thread.id;
   } else {
