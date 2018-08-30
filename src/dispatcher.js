@@ -1,5 +1,4 @@
 const { EventEmitter } = require('events');
-const waterfall = require('async/waterfall');
 const { gzip } = require('zlib');
 const pify = require('pify');
 
@@ -27,36 +26,43 @@ class Dispatcher extends EventEmitter {
     this.options = Object.assign({}, defaultOptions, options);
   }
 
-  placeMessage(peer, message, queue = 'messages') {
-    return waterfall([
-      (cb) => {
-        // check if message is in the queue
-        const msg = this.getQueue(peer, queue).find({ id: message.id }).value();
-        // message exists, update it
-        if (msg) {
-          return this.getQueue(peer, queue)
-            .find({ id: message.id })
-            .assign(message)
-            .write()
-            // return additional size = 0
-            .then(() => 0);
+  placeMessage(peer, message, relevance, queue = 'messages') {
+    const entry = {
+      id: message.id,
+      message,
+      relevance,
+    };
+
+    const queueData = this.getQueue(peer, queue);
+    let dbObject;
+    let messageSize;
+    // check if message is in the queue
+    const knownEntry = queueData.find({ id: entry.id }).value();
+    if (knownEntry) {
+      // message exists, update it
+      dbObject = queueData.find({ id: entry.id }).assign(entry);
+      // no messages size update, it has to be constant
+      messageSize = 0;
+    } else {
+      // new message
+      dbObject = queueData.push(entry);
+      messageSize = calcMessageSize(message);
+    }
+
+    return dbObject.write()
+      .then(() => {
+        if (messageSize) {
+          return this.getPeer(peer).get('queueSize')
+            .update(queue, size => size + messageSize)
+            .write();
         }
-        // new message
-        return this.getQueue(peer, queue)
-          .push(message)
-          .write()
-          // return message additional size
-          .then(() => calcMessageSize(message));
-      },
-      messageSize => this.getPeer(peer).get('queueSize')
-        .update(queue, size => size + messageSize)
-        .write(),
-      () => this.checkPackageReady(),
-    ]);
+        return 0; // to shout the lint up
+      })
+      .then(() => this.checkPackageReady(peer));
   }
 
-  placeReply(peer, reply) {
-    return this.sendMessage(peer, reply, 'replies');
+  placeReply(peer, reply, relevance) {
+    return this.sendMessage(peer, reply, relevance, 'replies');
   }
 
   getQueue(peer, queue) {
@@ -111,18 +117,18 @@ class Dispatcher extends EventEmitter {
       .orderBy(['relevance'], ['desc']).value();
     let messagesPackedSize = 0;
     while (messages.length && messagesSizeToPack > messagesPackedSize) {
-      const msg = messages.shift();
-      pack.push(msg);
-      messagesPackedSize += calcMessageSize(msg);
+      const entry = messages.shift();
+      pack.push(entry.message);
+      messagesPackedSize += calcMessageSize(entry.message);
     }
 
     const replies = this.getQueue(peer, 'replies')
       .orderBy(['relevance'], ['desc']).value();
     let repliesPackedSize = 0;
     while (replies.length && repliesSizeToPack > repliesPackedSize) {
-      const msg = replies.shift();
-      pack.push(msg);
-      repliesPackedSize += calcMessageSize(msg);
+      const entry = replies.shift();
+      pack.push(entry.message);
+      repliesPackedSize += calcMessageSize(entry.message);
     }
 
     const peerData = this.getPeer(peer).value();
