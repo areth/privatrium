@@ -2,11 +2,23 @@ const { EventEmitter } = require('events');
 const lowdb = require('lowdb');
 const messages = require('./messages');
 const threads = require('./threads');
+const DispatcherClass = require('./dispatcher');
+const LowdbMemory = require('./storage/lowdb-adapter-memory');
 
 class Node extends EventEmitter {
   constructor(storage) {
     super();
-    this.db = lowdb(storage);
+
+    lowdb(storage)
+      .then((db) => {
+        this.db = db;
+      });
+
+    lowdb(new LowdbMemory())
+      .then((db) => {
+        this.dispatcher = new DispatcherClass(db);
+        this.dispatcher.on('package:ready', this.onPackageReady);
+      });
   }
 
   postText(text, { replyTo = '', channel = '' } = {}) {
@@ -42,13 +54,14 @@ class Node extends EventEmitter {
   }
 
   post(message) {
+    let dbObject;
     if (message.replyTo) {
-      this.db.get('replies').push(message);
+      dbObject = this.db.get('replies').push(message);
     } else {
-      this.db.get('messages').push(message);
+      dbObject = this.db.get('messages').push(message);
     }
-    this.db.get('messagesIds').push(message.id);
-    return this.db.write();
+    return dbObject.write()
+      .then(() => this.db.get('messagesIds').push(message.id).write());
   }
 
   findIncomeMessage(messageId) {
@@ -79,6 +92,16 @@ class Node extends EventEmitter {
     return this.db.get('threads')
       .find({ id: threadId })
       .value();
+  }
+
+  onPackageReady(peer) {
+    return this.dispatcher.makePackage(peer)
+      .then((pack) => {
+        if (pack) {
+          return this.transport.sendPackage(peer, pack);
+        }
+        return null;
+      });
   }
 }
 

@@ -9,6 +9,7 @@ const { gunzip } = require('zlib');
 const pify = require('pify');
 const sinon = require('sinon');
 const sinonChai = require('sinon-chai');
+const delay = require('../src/utils/delay');
 // const fs = require('fs');
 
 chai.use(sinonChai);
@@ -16,6 +17,7 @@ chai.should();
 
 const peer1 = 'peerId1';
 const peer2 = 'peerId2';
+const peer3 = 'peerId3';
 
 const msg1 = messages.makePublic(messages.makePrivate('Message 1 text'));
 const msg2 = messages.makePublic(messages.makePrivate('Message 2 text'));
@@ -23,7 +25,7 @@ const msg2 = messages.makePublic(messages.makePrivate('Message 2 text'));
 let dispatcher;
 lowdb(new Memory())
   .then((db) => {
-    dispatcher = new DispatcherClass(db, { packTimeout: 5000 });
+    dispatcher = new DispatcherClass(db, { packInterval: 0 });
   });
 
 describe('dispatcher', () => {
@@ -70,22 +72,52 @@ describe('dispatcher', () => {
         }));
   });
 
-  describe('remove peer', () => {
-    it('it should remove peer', () => {
-      setTimeout(() => {
-        dispatcher.removePeer(peer1);
-      }, 1500);
-    });
-    it('it should remove peer', () => {
-      setTimeout(() => {
-        dispatcher.removePeer(peer2);
-      }, 1500);
-    });
-  });
-
   describe('package ready event', () => {
-    it('it should fire package ready event', () => {
+    let packTimeoutDefault;
+
+    before(() => {
+      packTimeoutDefault = dispatcher.options.packTimeout;
+    });
+
+    after(() => {
+      dispatcher.options.packTimeout = packTimeoutDefault;
+    });
+
+    it('it shouldn`t fire package ready event by timeout', () => {
       const spy = sinon.spy();
+
+      // extend the pack timeout to not fire unexpectedly
+      dispatcher.options.packTimeout = 5000; // 5 seconds
+      dispatcher.on('package:ready', spy);
+
+      const msg = messages.makePublic(messages.makePrivate(`Some message text at ${Date.now()}`));
+
+      return delay(dispatcher.options.packTimeout / 4)()
+        .then(() => dispatcher.placeMessage(peer1, msg, msg.content.date))
+        .then(() => spy.should.not.have.been.called);
+    });
+
+    it('it should fire package ready event by timeout', () => {
+      const spy = sinon.spy();
+
+      // shrink the pack timeout to not wait too long
+      dispatcher.options.packTimeout = 1000; // 1 second
+      dispatcher.on('package:ready', spy);
+
+      const msg = messages.makePublic(messages.makePrivate(`Some message text at ${Date.now()}`));
+
+      return delay(dispatcher.options.packTimeout)()
+        .then(() => dispatcher.placeMessage(peer1, msg, msg.content.date))
+        .then(() => {
+          spy.should.have.been.calledWith(peer1);
+        });
+    });
+
+    it('it should fire package ready event with queue gets full', () => {
+      const spy = sinon.spy();
+
+      // extend the pack timeout to not fire unexpectedly
+      dispatcher.options.packTimeout = 5000; // 5 seconds
       dispatcher.on('package:ready', spy);
 
       let totalSize = 0;
@@ -105,5 +137,18 @@ describe('dispatcher', () => {
       // .then(pack => console.log(pack.length));
       // .then(pack => pify(fs.writeFile)('./parcel', pack));
     });
+  });
+
+  describe('remove peer', () => {
+    before(() => {
+      dispatcher.addPeer(peer3);
+    });
+
+    it('it should remove peer', () => delay(500)()
+      .then(() => dispatcher.removePeer(peer3)));
+    it('it should remove peer', () => delay(500)()
+      .then(() => dispatcher.removePeer(peer2)));
+    it('it should remove peer', () => delay(500)()
+      .then(() => dispatcher.removePeer(peer1)));
   });
 });

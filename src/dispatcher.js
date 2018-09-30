@@ -5,7 +5,8 @@ const pify = require('pify');
 const defaultOptions = {
   packageSize: 4 * 10 * 1024, // 40kb uncompressed => 10kb package
   repliesFactor: 0.5, // up 50% replies
-  packTimeout: 3 * 60 * 1000, // 3 minutes
+  packTimeout: 1.5 * 60 * 1000, // 1.5 minutes
+  packInterval: 60 * 1000, // 1 minute
 };
 
 const makePeer = peer => ({
@@ -62,7 +63,7 @@ class Dispatcher extends EventEmitter {
   }
 
   placeReply(peer, reply, relevance) {
-    return this.sendMessage(peer, reply, relevance, 'replies');
+    return this.placeMessage(peer, reply, relevance, 'replies');
   }
 
   getQueue(peer, queue) {
@@ -97,8 +98,10 @@ class Dispatcher extends EventEmitter {
     const peerData = this.getPeer(peer).value();
     const totalSize = peerData.queueSize.messages + peerData.queueSize.replies;
     const elapsedTime = Date.now() - peerData.lastPacked;
-    if ((totalSize >= this.options.packageSize)
+    if ((elapsedTime >= this.options.packInterval && totalSize >= this.options.packageSize)
       || (elapsedTime >= this.options.packTimeout && totalSize)) {
+      // console.log(`last time: ${peerData.lastPacked}\
+      //  elapsed: ${elapsedTime} size: ${totalSize}`);
       this.emit('package:ready', peer);
     }
   }
